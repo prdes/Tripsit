@@ -202,7 +202,7 @@ class Tripsit(callbacks.Plugin):
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
             since_dose_formatted = utils.str.format('%T', since_dose_seconds)
-            re = f"You last dosed {lastdose['dose']} of {lastdose['drug']} via {lastdose['method']} at {dose_time} {since_dose_formatted} ago"
+            re = f"You last dosed {lastdose['dose']} of {lastdose['drug']} via {lastdose['method']} at {dose_time}, {since_dose_formatted} ago"
             irc.reply(re)
         else:
             irc.error(f'No last dose saved for {msg.nick}')
