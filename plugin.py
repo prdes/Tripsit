@@ -30,8 +30,12 @@
 
 from supybot import utils, plugins, ircutils, callbacks
 from supybot.commands import *
+from pathlib import Path
+from os import path
+import dateutil.parser
 import json
 import requests
+from datetime import datetime
 try:
     from supybot.i18n import PluginInternationalization
     _ = PluginInternationalization('Tripsit')
@@ -39,6 +43,11 @@ except ImportError:
     # Placeholder that allows to run the plugin on a bot
     # without the i18n module
     _ = lambda x: x
+dose_filename = 'dose.json'
+dose_db = Path(dose_filename)
+if not path.isfile(dose_filename):
+    dose_db.write_text('{}')
+dose_data = json.loads(dose_db.read_text())
 
 URL_DRUG = "http://tripbot.tripsit.me/api/tripsit/getDrug"
 URL_COMBO = "http://tripbot.tripsit.me/api/tripsit/getInteraction"
@@ -106,6 +115,69 @@ class Tripsit(callbacks.Plugin):
         else:
             irc.error("Unknown Combo")
     combo = wrap(combo, [("something"), ("something")])
+
+    def idose(self, irc, msg, args, dose, name, method):
+        """<amt> <drug> <method> logs a dose to keep track of
+        """
+        r = requests.get(URL_DRUG, params={f"name": name}).json()
+        found_method = False
+        onset = None
+        if not r['err']:
+            drug = r['data'][0]
+            drug_name = r['data'][0]['pretty_name']
+            method_keys = ['value']
+            methods = []
+            if method:
+                methods = [method.lower()]
+                methods = METHODS.get(methods[0], methods)
+                method_keys += methods
+
+            if 'formatted_onset' in drug:
+                match = list(set(method_keys)&
+                    set(drug["formatted_onset"].keys()))
+                if match:
+                    onset = drug["formatted_onset"][match[0]]
+                    found_method = True
+                    if match[0] in methods:
+                        method = (match or [method])[0]
+
+                if onset and "_unit" in drug["formatted_onset"]:
+                    onset = "%s %s" % (
+                        onset, drug["formatted_onset"]["_unit"])
+        drug_and_method = drug_name
+        if method:
+            if not found_method:
+                method = method.title()
+
+            drug_and_method = "%s via %s" % (drug_and_method, method)
+
+        time = datetime.utcnow()
+        dose_data[str(msg.nick)] = { 'time': str(time), 'dose': dose, 'drug': drug_name, 'method': method }
+        re = f"Dosed {dose} of {drug_and_method} at {str(time)}"
+
+        if not onset == None:
+            re += f". You should start feeling effects {onset} from now"
+        irc.reply(re)
+    idose = wrap(idose, [("something"), ("something"), ("something")])
+
+    def lastdose(self, irc, msg, args):
+        """ retrieves saved dose
+        """
+        if str(msg.nick) in dose_data:
+            lastdose = dose_data[str(msg.nick)]
+            time = dateutil.parser.isoparse(lastdose['time'])
+            re = f"You last dosed {lastdose['dose']} of {lastdose['drug']} via {lastdose['method']} at {time}"
+            irc.reply(re)
+        else:
+            irc.error('No last dose saved for you')
+
+    lastdose = wrap(lastdose)
+
+
+
+
+
+
 
 Class = Tripsit
 
