@@ -209,8 +209,6 @@ class Tripsit(callbacks.Plugin):
                 re += f". You should have/will start feeling effects {onset} from {str(time_dosed)} UTC"
         irc.reply(re)
 
-    idose = wrap(idose, [("something"), ("something"), optional("something"), optional("something")])
-
 
     def lastdose(self, irc, msg, args):
         """This command takes no arguments
