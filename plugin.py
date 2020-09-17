@@ -35,7 +35,7 @@ import json
 import requests
 import pickle
 import sys
-from datetime import datetime
+import datetime
 import time
 try:
     from supybot.i18n import PluginInternationalization
@@ -193,19 +193,19 @@ class Tripsit(callbacks.Plugin):
 
         hours = int(ago[0:2])
         minutes = int(ago[2:4])
-        time = datetime.utcnow()
+        time = datetime.datetime.utcnow()
         if not ago:
             self.db[msg.nick] = {'type': 'idose' ,'time': str(time), 'dose': dose, 'drug': drug_name, 'method': method }
-            re = f" You dosed {dose} of {drug_and_method} at {str(time)}"
+            re = f" You dosed {dose} of {drug_and_method} at {str(time)} UTC"
             if not onset == None:
                 re += f". You should start feeling effects {onset} from now"
         else:
             dose_td = datetime.timedelta(hours=hours, minutes=minutes)
             time_dosed = time - dose_td
             self.db[msg.nick] = {'type': 'hdose', 'time': str(time), 'time_dosed': str(time_dosed), 'dose': dose, 'drug': drug_name, 'method': method }
-            re = f" You dosed {dose} of {drug_and_method} at {str(time_dosed)}"
+            re = f" You dosed {dose} of {drug_and_method} at {str(time_dosed)} UTC, {str(hours)} hours and {str(minutes)} minutes ago"
             if not onset == None:
-                re += f". You should start feeling effects {onset} from now"
+                re += f". You should have/will start feeling effects {onset} from {str(time_dosed)} UTC"
         irc.reply(re)
 
     idose = wrap(idose, [("something"), ("something"), optional("something"), optional("something")])
@@ -218,7 +218,7 @@ class Tripsit(callbacks.Plugin):
         """
         if msg.nick in self.db:
             lastdose = self.db[msg.nick]
-            time = datetime.utcnow()
+            time = datetime.datetime.utcnow()
             if lastdose['type'] == 'idose':
                 dose_time = dateutil.parser.isoparse(lastdose['time'])
             elif lastdose['type'] == 'hdose':
@@ -226,7 +226,7 @@ class Tripsit(callbacks.Plugin):
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
             since_dose_formatted = utils.str.format('%T', since_dose_seconds)
-            re = f"You last dosed {lastdose['dose']} of {lastdose['drug']} via {lastdose['method']} at {dose_time}, {since_dose_formatted} ago"
+            re = f"You last dosed {lastdose['dose']} of {lastdose['drug_and_method']} at {dose_time} UTC, {since_dose_formatted} ago"
             irc.reply(re)
         else:
             irc.error(f'No last dose saved for {msg.nick}')
