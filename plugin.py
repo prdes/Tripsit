@@ -181,26 +181,27 @@ class Tripsit(callbacks.Plugin):
                 if onset and "_unit" in drug["formatted_onset"]:
                     onset = "%s %s" % (
                         onset, drug["formatted_onset"]["_unit"])
-        drug_and_method = name
 
         if method:
             if not found_method:
                 method = method.title()
             drug_and_method = "%s via %s" % (drug_and_method, method)
-
+        else:
+            drug_and_method = name
+            method = 'Undefined'
 
         hours = int(ago[0:2])
         minutes = int(ago[2:4])
         time = datetime.datetime.utcnow()
         if not ago:
-            self.db[msg.nick] = {'type': 'idose' ,'time': str(time), 'dose': dose, 'drug': drug_name, 'method': method }
+            self.db[msg.nick] = {'type': 'idose' ,'time': str(time), 'dose': dose, 'drug': name, 'method': method }
             re = f" You dosed {dose} of {drug_and_method} at {str(time)} UTC"
             if not onset == None:
                 re += f". You should start feeling effects {onset} from now"
         else:
             dose_td = datetime.timedelta(hours=hours, minutes=minutes)
             time_dosed = time - dose_td
-            self.db[msg.nick] = {'type': 'hdose', 'time': str(time), 'time_dosed': str(time_dosed), 'dose': dose, 'drug': drug_name, 'method': method }
+            self.db[msg.nick] = {'type': 'hdose', 'time': str(time), 'time_dosed': str(time_dosed), 'dose': dose, 'drug': name, 'method': method }
             re = f" You dosed {dose} of {drug_and_method} at {str(time_dosed)} UTC, {str(hours)} hours and {str(minutes)} minutes ago"
             if not onset == None:
                 re += f". You should have/will start feeling effects {onset} from {str(time_dosed)} UTC"
