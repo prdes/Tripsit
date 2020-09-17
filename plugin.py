@@ -149,7 +149,7 @@ class Tripsit(callbacks.Plugin):
 
     combo = wrap(combo, [("something"), ("something")])
 
-    @wrap(idose, [("something"), ("something"), optional("something"), optional("something")])
+    @wrap(["something", "something", optional("something"), optional("something")])
     def idose(self, irc, msg, args, dose, name, method, ago):
         """<amount> <drug> [<method>] [<ago>]
 
@@ -161,7 +161,7 @@ class Tripsit(callbacks.Plugin):
         onset = None
         if not r['err']:
             drug = r['data'][0]
-            drug_name = r['data'][0]['pretty_name']
+            drug_name = drug['pretty_name']
             method_keys = ['value']
             methods = []
             if method:
@@ -181,16 +181,13 @@ class Tripsit(callbacks.Plugin):
                 if onset and "_unit" in drug["formatted_onset"]:
                     onset = "%s %s" % (
                         onset, drug["formatted_onset"]["_unit"])
-            drug_and_method = drug_name
-        else:
-            drug_name = name
-            drug_and_method = name
+        drug_and_method = name
 
         if method:
             if not found_method:
                 method = method.title()
-
             drug_and_method = "%s via %s" % (drug_and_method, method)
+
 
         hours = int(ago[0:2])
         minutes = int(ago[2:4])
