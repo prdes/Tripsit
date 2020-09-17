@@ -104,6 +104,7 @@ class Tripsit(callbacks.Plugin):
     @wrap(['something', optional('something')])
     def drug(self, irc, msg, args, name, category):
         """<drug> [<category>]
+
         fetches data on drug from tripsit wiki
         """
         category_list = []
@@ -127,6 +128,7 @@ class Tripsit(callbacks.Plugin):
 
     def combo(self, irc, msg, args, drugA, drugB):
         """<drugA> <drugB>
+
         fetches known interactions between the substances provided.
         """
         r = requests.get(url_combo, params={f"drugA": drugA, f"drugB": drugB}).json()
@@ -147,9 +149,11 @@ class Tripsit(callbacks.Plugin):
 
     combo = wrap(combo, [("something"), ("something")])
 
-    def idose(self, irc, msg, args, dose, name, method):
-        """<amountt> <drug> <method>
-        logs a dose in the database for retrieval
+    def idose(self, irc, msg, args, dose, name, ago, method):
+        """<amount> <drug> [<ago>] [<method>]
+
+        <ago> is in the format HHMM
+        logs a dose for you, use 'lastdose' command to retrieve
         """
         r = requests.get(url_drug, params={"name": name}).json()
         found_method = False
@@ -176,29 +180,49 @@ class Tripsit(callbacks.Plugin):
                 if onset and "_unit" in drug["formatted_onset"]:
                     onset = "%s %s" % (
                         onset, drug["formatted_onset"]["_unit"])
-        drug_and_method = drug_name
+            drug_and_method = drug_name
+        else:
+            drug_name = name
+            drug_and_method = name
+
         if method:
             if not found_method:
                 method = method.title()
 
             drug_and_method = "%s via %s" % (drug_and_method, method)
 
+        hours = int(ago[0:2])
+        minutes = int(ago[2:4])
         time = datetime.utcnow()
-        self.db[msg.nick] = { 'time': str(time), 'dose': dose, 'drug': drug_name, 'method': method }
-        re = f"{msg.nick} dosed {dose} of {drug_and_method} at {str(time)}"
-
-        if not onset == None:
-            re += f". You should start feeling effects {onset} from now"
+        if not ago:
+            self.db[msg.nick] = {'type': 'idose' ,'time': str(time), 'dose': dose, 'drug': drug_name, 'method': method }
+            re = f" You dosed {dose} of {drug_and_method} at {str(time)}"
+            if not onset == None:
+                re += f". You should start feeling effects {onset} from now"
+        else:
+            dose_td = datetime.timedelta(hours=hours, minutes=minutes)
+            time_dosed = time - dose_td
+            self.db[msg.nick] = {'type': 'hdose', 'time': str(time), 'time_dosed': str(time_dosed) 'dose': dose, 'drug': drug_name, 'method': method }
+            re = f" You dosed {dose} of {drug_and_method} at {str(time_dosed)}"
+            if not onset == None:
+                re += f". You should start feeling effects {onset} from now"
         irc.reply(re)
-    idose = wrap(idose, [("something"), ("something"), ("something")])
+
+    idose = wrap(idose, [("something"), ("something"), optional("something"), optional("something")])
+
 
     def lastdose(self, irc, msg, args):
-        """ retrieves saved dose
+        """This command takes no arguments
+
+        retrieves your last logged dose
         """
         if msg.nick in self.db:
             lastdose = self.db[msg.nick]
             time = datetime.utcnow()
-            dose_time = dateutil.parser.isoparse(lastdose['time'])
+            if lastdose['type'] == 'idose'
+                dose_time = dateutil.parser.isoparse(lastdose['time'])
+            elif lastdose['type'] == 'hdose':
+                dose_time = dateutil.parser.isoparse(lastdose['time_dosed'])
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
             since_dose_formatted = utils.str.format('%T', since_dose_seconds)
