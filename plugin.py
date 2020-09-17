@@ -202,7 +202,7 @@ class Tripsit(callbacks.Plugin):
         else:
             dose_td = datetime.timedelta(hours=hours, minutes=minutes)
             time_dosed = time - dose_td
-            self.db[msg.nick] = {'type': 'hdose', 'time': str(time), 'time_dosed': str(time_dosed) 'dose': dose, 'drug': drug_name, 'method': method }
+            self.db[msg.nick] = {'type': 'hdose', 'time': str(time), 'time_dosed': str(time_dosed), 'dose': dose, 'drug': drug_name, 'method': method }
             re = f" You dosed {dose} of {drug_and_method} at {str(time_dosed)}"
             if not onset == None:
                 re += f". You should start feeling effects {onset} from now"
