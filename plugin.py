@@ -219,7 +219,7 @@ class Tripsit(callbacks.Plugin):
         if msg.nick in self.db:
             lastdose = self.db[msg.nick]
             time = datetime.utcnow()
-            if lastdose['type'] == 'idose'
+            if lastdose['type'] == 'idose':
                 dose_time = dateutil.parser.isoparse(lastdose['time'])
             elif lastdose['type'] == 'hdose':
                 dose_time = dateutil.parser.isoparse(lastdose['time_dosed'])
