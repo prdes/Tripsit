@@ -149,8 +149,9 @@ class Tripsit(callbacks.Plugin):
 
     combo = wrap(combo, [("something"), ("something")])
 
-    def idose(self, irc, msg, args, dose, name, ago, method):
-        """<amount> <drug> [<ago>] [<method>]
+    @wrap(idose, [("something"), ("something"), optional("something"), optional("something")])
+    def idose(self, irc, msg, args, dose, name, method, ago):
+        """<amount> <drug> [<method>] [<ago>]
 
         <ago> is in the format HHMM
         logs a dose for you, use 'lastdose' command to retrieve
