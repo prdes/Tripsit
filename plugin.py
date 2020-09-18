@@ -38,9 +38,6 @@ import sys
 import datetime
 import pytz
 
-ct = datetime.datetime.now(tz=tz)
-import datetime
-import time
 try:
     from supybot.i18n import PluginInternationalization
     _ = PluginInternationalization('Tripsit')
@@ -209,8 +206,8 @@ class Tripsit(callbacks.Plugin):
         ih = msg.prefix.split("!")[1]
         if self.db[ih] is not None:
             timezone = self.db[ih]
-            tz = pytz.timezone(timezone)
-            time = datetime.datetime.now(tz=tz)
+            timez = pytz.timezone(timezone)
+            time = datetime.datetime.now(tz=timez)
         else:
             timezone = 'UTC'
             time = datetime.datetime.utcnow()
@@ -263,8 +260,8 @@ class Tripsit(callbacks.Plugin):
             if timezone == 'UTC':
                 time = datetime.datetime.utcnow()
             else:
-                tz = pytz.timezone(timezone)
-                time = datetime.datetime.now(tz=tz)
+                timez = pytz.timezone(timezone)
+                time = datetime.datetime.now(tz=timez)
             dose_time = dateutil.parser.isoparse(lastdose['time'])
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
