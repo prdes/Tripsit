@@ -37,6 +37,8 @@ import pickle
 import sys
 import datetime
 import time
+import pytz
+
 try:
     from supybot.i18n import PluginInternationalization
     _ = PluginInternationalization('Tripsit')
@@ -147,9 +149,23 @@ class Tripsit(callbacks.Plugin):
 
     combo = wrap(combo, [("something"), ("something")])
 
+    def set(self, irc, msg, args, timezone):
+        """<timezone>
+        Sets location for your current ident@host to <timezone>
+        for eg. America/Chicago
+        """
+        nick = msg.nick
+        if nick in self.db:
+            self.db[nick]['timezone'] = timezone
+        else:
+            self.db[nick] = {'timezone': timezone }
+        irc.replySuccess()
+    set = wrap(set, ["something"])
+
     @wrap(["something", "something", optional("something"), optional("something")])
     def idose(self, irc, msg, args, dose, name, method, ago):
         """<amount> <drug> [<method>] [<ago>]
+
         <ago> is in the format HHMM
         logs a dose for you, use 'lastdose' command to retrieve
         """
@@ -184,48 +200,74 @@ class Tripsit(callbacks.Plugin):
                 method = method.title()
             drug_and_method = "%s via %s" % (drug_and_method, method)
         else:
-            method = 'Undefined/Probably boofed'
+            method = 'Undefined'
 
-
-
-        time = datetime.datetime.utcnow()
-        if not ago:
-            self.db[msg.nick] = {'type': 'idose' ,'time': str(time), 'dose': dose, 'drug': name, 'method': method }
-            re = f" You dosed {dose} of {drug_and_method} at {str(time)} UTC"
-            if not onset == None:
-                re += f". You should start feeling effects {onset} from now"
+        nick = msg.nick
+        if nick in self.db:
+            timezone = self.db[nick].get('timezone', 'UTC')
+            tz = pytz.timezone(timezone)
+            time = datetime.datetime.now(tz=tz)
+            dose_td = 0
+            if ago is not None and len(ago) == 4:
+                dose_td = datetime.timedelta(hours=int(ago[0:2]), minutes=int(ago[2:4]))
+                dose_td_s = dose_td.total_seconds()
+                time = time - dose_td
+            doseLog = {'time': time, 'dose': dose, 'drug': name, 'method': method }
+            doses = self.db[nick].get('doses')
+            if doses:
+                doses.append(doseLog)
+            else:
+                doses = [doseLog]
+            self.db[nick]['doses'] = doses
         else:
-            hours = int(ago[0:2])
-            minutes = int(ago[2:4])
-            dose_td = datetime.timedelta(hours=hours, minutes=minutes)
-            time_dosed = time - dose_td
-            self.db[msg.nick] = {'type': 'hdose', 'time': str(time), 'time_dosed': str(time_dosed), 'dose': dose, 'drug': name, 'method': method }
-            re = f" You dosed {dose} of {drug_and_method} at {str(time_dosed)} UTC, {str(hours)} hours and {str(minutes)} minutes ago"
-            if not onset == None:
-                re += f". You should have/will start feeling effects {onset} from {str(time_dosed)} UTC"
+            timezone = 'UTC'
+            tz = pytz.timezone(timezone)
+            time = datetime.datetime.now(tz=tz)
+            dose_td = 0
+            if ago is not None and len(ago) == 4:
+                dose_td = datetime.timedelta(hours=int(ago[0:2]), minutes=int(ago[2:4]))
+                dose_td_s = dose_td.total_seconds()
+                time = time - dose_td
+            doseLog = {'time': time, 'dose': dose, 'drug': name, 'method': method }
+            doses = [doseLog]
+            self.db[nick] = {'timezone': timezone, 'doses': doses}
+
+        if dose_td == 0:
+            re = utils.str.format("You dosed %s of %s at %t, %s", dose, drug_and_method, time.timetuple(), timezone)
+            if onset is not None:
+                re += utils.str.format(". You should start feeling effects %s from now", onset)
+        else:
+            re = utils.str.format("You dosed %s of %s at %t, %s ; %T ago", dose, drug_and_method, time.timetuple(), timezone, dose_td.total_seconds())
+            if onset is not None:
+                re += utils.str.format(". You should have/will start feeling effects %s from/after dosing", onset)
         irc.reply(re)
 
-
-    def lastdose(self, irc, msg, args):
+    @wrap([optional('positiveInt')])
+    def lastdose(self, irc, msg, args, history):
         """This command takes no arguments
         retrieves your last logged dose
         """
-        if msg.nick in self.db:
-            lastdose = self.db[msg.nick]
-            time = datetime.datetime.utcnow()
-            if lastdose['type'] == 'idose':
-                dose_time = dateutil.parser.isoparse(lastdose['time'])
-            elif lastdose['type'] == 'hdose':
-                dose_time = dateutil.parser.isoparse(lastdose['time_dosed'])
+        nick = msg.nick
+        if nick in self.db:
+            if history:
+                lastdose = self.db[nick]['doses'][int(history)]
+            else:
+                lastdose = self.db[nick]['doses'][-1]
+            dose = lastdose['dose']
+            drug = lastdose['drug']
+            dose_time = lastdose['time']
+            timezone = self.db[nick]['timezone']
+            tz = pytz.timezone()
+            time = datetime.datetime.now(tz=tz)
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
-            since_dose_formatted = utils.str.format('%T', since_dose_seconds)
-            re = f"You last dosed {lastdose['dose']} of {lastdose['drug'] }at {dose_time} UTC, {since_dose_formatted} ago"
+            if history:
+                re = utils.str.format("Your %i'th last dose was %s of %s at %t %s, %T ago", history, dose, drug, dose_time.timetuple(), timezone, since_dose_seconds)
+            else:
+                re = utils.str.format("You last dosed %s of %s at %t %s, %T ago", dose, drug, dose_time.timetuple(), timezone, since_dose_seconds)
             irc.reply(re)
         else:
-            irc.error(f'No last dose saved for {msg.nick}')
-
-    lastdose = wrap(lastdose)
+            irc.error(f'No doses saved for {nick}')
 
 
 
