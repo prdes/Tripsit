@@ -36,9 +36,7 @@ import requests
 import pickle
 import sys
 import datetime
-import pytz
 import time
-
 try:
     from supybot.i18n import PluginInternationalization
     _ = PluginInternationalization('Tripsit')
@@ -106,7 +104,6 @@ class Tripsit(callbacks.Plugin):
     @wrap(['something', optional('something')])
     def drug(self, irc, msg, args, name, category):
         """<drug> [<category>]
-
         fetches data on drug from tripsit wiki
         """
         category_list = []
@@ -130,7 +127,6 @@ class Tripsit(callbacks.Plugin):
 
     def combo(self, irc, msg, args, drugA, drugB):
         """<drugA> <drugB>
-
         fetches known interactions between the substances provided.
         """
         r = requests.get(url_combo, params={f"drugA": drugA, f"drugB": drugB}).json()
@@ -151,22 +147,9 @@ class Tripsit(callbacks.Plugin):
 
     combo = wrap(combo, [("something"), ("something")])
 
-    def set(self, irc, msg, args, timezone):
-        """<timezone>
-
-        Sets location for your current ident@host to <timezone>
-        for eg. America/Chicago
-        """
-
-        ih = msg.prefix.split("!")[1]
-        self.db[ih] = timezone
-        irc.replySuccess()
-    set = wrap(set, ["text"])
-
     @wrap(["something", "something", optional("something"), optional("something")])
     def idose(self, irc, msg, args, dose, name, method, ago):
         """<amount> <drug> [<method>] [<ago>]
-
         <ago> is in the format HHMM
         logs a dose for you, use 'lastdose' command to retrieve
         """
@@ -201,75 +184,52 @@ class Tripsit(callbacks.Plugin):
                 method = method.title()
             drug_and_method = "%s via %s" % (drug_and_method, method)
         else:
-            method = 'Undefined'
+            method = 'Undefined/Probably boofed'
 
-        ih = msg.prefix.split("!")[1]
-        if self.db[ih] is not None:
-            timezone = self.db[ih]
-            timez = pytz.timezone(timezone)
-            time = datetime.datetime.now(tz=timez)
+
+
+        time = datetime.datetime.utcnow()
+        if not ago:
+            self.db[msg.nick] = {'type': 'idose' ,'time': str(time), 'dose': dose, 'drug': name, 'method': method }
+            re = f" You dosed {dose} of {drug_and_method} at {str(time)} UTC"
+            if not onset == None:
+                re += f". You should start feeling effects {onset} from now"
         else:
-            timezone = 'UTC'
-            time = datetime.datetime.utcnow()
-        dose_td = 0
-        if ago is not None and len(ago) == 4:
             hours = int(ago[0:2])
             minutes = int(ago[2:4])
             dose_td = datetime.timedelta(hours=hours, minutes=minutes)
-            dose_td_s = dose_td.total_seconds()
-            time = time - dose_td
-
-
-        log_dict = {'time': time, 'timezone': timezone, 'dose': dose, 'drug': name, 'method': method }
-
-        nickdb = self.db[msg.nick]
-        if nickdb is not None and len(nickdb) < 10:
-            # if dose db exists and there are less that 10
-            nickdb.append(log_dict)
-        elif len(nickdb) == 10:
-            # how can this be greater than it has to be equal to 10
-            nickdb.pop(0)
-        elif nickdb is None:
-            # dose db doesnt exist. Initialise list
-            nickdb = [log_dict]
-
-        if dose_td == 0:
-            re = utils.str.format("You dosed %s of %s at %t, %s", dose, drug_and_method, time.timetuple(), timezone)
-            if onset is not None:
-                re += utils.str.format(". You should start feeling effects %s from now", onset)
-        else:
-            re = utils.str.format("You dosed %s of %s at %t, %s %T", dose, drug_and_method, time.timetuple(), timezone, dose_td.total_seconds())
-            if onset is not None:
-                re += utils.str.format(". You should have/will start feeling effects %s from/after dosing", onset)
+            time_dosed = time - dose_td
+            self.db[msg.nick] = {'type': 'hdose', 'time': str(time), 'time_dosed': str(time_dosed), 'dose': dose, 'drug': name, 'method': method }
+            re = f" You dosed {dose} of {drug_and_method} at {str(time_dosed)} UTC, {str(hours)} hours and {str(minutes)} minutes ago"
+            if not onset == None:
+                re += f". You should have/will start feeling effects {onset} from {str(time_dosed)} UTC"
         irc.reply(re)
 
-    @wrap([optional('positiveInt')])
-    def lastdose(self, irc, msg, args, history):
-        """<history> are digits upto but not including 10
 
+    def lastdose(self, irc, msg, args):
+        """This command takes no arguments
         retrieves your last logged dose
         """
         if msg.nick in self.db:
-            if history:
-                lastdose = self.db[msg.nick][int(history)]
-            else:
-                history = 0
-                lastdose = self.db[msg.nick][0]
-            dose = lastdose['dose']
-            drug = lastdose['drug']
-            timezone = lastdose['timezone']
-            if timezone == 'UTC':
-                time = datetime.datetime.utcnow()
-            else:
-                timez = pytz.timezone(timezone)
-                time = datetime.datetime.now(tz=timez)
-            dose_time = lastdose['time']
+            lastdose = self.db[msg.nick]
+            time = datetime.datetime.utcnow()
+            if lastdose['type'] == 'idose':
+                dose_time = dateutil.parser.isoparse(lastdose['time'])
+            elif lastdose['type'] == 'hdose':
+                dose_time = dateutil.parser.isoparse(lastdose['time_dosed'])
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
-            re = utils.str.format("Your #%i last dose was %s of %s at %t %s, %T ago", history, dose, drug, dose_time.timetuple(), timezone, since_dose_seconds)
+            since_dose_formatted = utils.str.format('%T', since_dose_seconds)
+            re = f"You last dosed {lastdose['dose']} of {lastdose['drug'] }at {dose_time} UTC, {since_dose_formatted} ago"
             irc.reply(re)
         else:
             irc.error(f'No last dose saved for {msg.nick}')
+
+    lastdose = wrap(lastdose)
+
+
+
+
 
 
 
