@@ -131,7 +131,7 @@ class Tripsit(callbacks.Plugin):
         """<drugA> <drugB>
         fetches known interactions between the substances provided.
         """
-        r = requests.get(url_combo, params={f"drugA": drugA, f"drugB": drugB}).json()
+        r = requests.get(url_combo, params={"drugA": drugA, "drugB": drugB}).json()
         if not r["err"] and r["data"][0]:
             interaction = r["data"][0]
             drug_a = interaction["interactionCategoryA"]
@@ -158,7 +158,7 @@ class Tripsit(callbacks.Plugin):
         if nick in self.db:
             self.db[nick]['timezone'] = timezone
         else:
-            self.db[nick] = {'timezone': timezone }
+            self.db[nick] = {'timezone': timezone}
         irc.replySuccess()
     set = wrap(set, ["something"])
 
@@ -212,7 +212,7 @@ class Tripsit(callbacks.Plugin):
                 dose_td = datetime.timedelta(hours=int(ago[0:2]), minutes=int(ago[2:4]))
                 dose_td_s = dose_td.total_seconds()
                 time = time - dose_td
-            doseLog = {'time': time, 'dose': dose, 'drug': name, 'method': method }
+            doseLog = {'time': time, 'dose': dose, 'drug': name, 'method': method}
             doses = self.db[nick].get('doses')
             if doses:
                 doses.append(doseLog)
@@ -226,7 +226,6 @@ class Tripsit(callbacks.Plugin):
             dose_td = 0
             if ago is not None and len(ago) == 4:
                 dose_td = datetime.timedelta(hours=int(ago[0:2]), minutes=int(ago[2:4]))
-                dose_td_s = dose_td.total_seconds()
                 time = time - dose_td
             doseLog = {'time': time, 'dose': dose, 'drug': name, 'method': method }
             doses = [doseLog]
@@ -257,7 +256,7 @@ class Tripsit(callbacks.Plugin):
             drug = lastdose['drug']
             dose_time = lastdose['time']
             timezone = self.db[nick]['timezone']
-            tz = pytz.timezone()
+            tz = pytz.timezone(timezone)
             time = datetime.datetime.now(tz=tz)
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
