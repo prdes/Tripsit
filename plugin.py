@@ -56,14 +56,22 @@ insufflated = ["Insufflated", "Insufflated-IR", "Insufflated-XR"]
 METHODS = {
     "iv": ["IV"],
     "shot": ["IV"],
+    
+# rectal bioavailability is similar to IV, although I am leaving
+# this entry commented out because it truly is a different route
+#    "plug": ["IV"], # anal
 
     "im": ["IM"],
 
     "oral": ["Oral", "Oral-IR", "Oral-XR"],
+    "bomb": ["Oral-IR"], # powder wrapped in a cigarette paper
 
     "insufflated": insufflated,
     "snorted": insufflated,
 
+# aerosol bioavailability varies widely, and most of the vapors
+# are aerosols; thus I am also leaving this entry commented out
+#    "vape": ["Smoked"]
     "smoked": ["Smoked"]
 }
 
