@@ -131,7 +131,7 @@ class Tripsit(callbacks.Plugin):
         """<drugA> <drugB>
         fetches known interactions between the substances provided.
         """
-        r = requests.get(url_combo, params={"drugA": drugA, "drugB": drugB}).json()
+        r = requests.get(url_combo, params={f"drugA": drugA, f"drugB": drugB}).json()
         if not r["err"] and r["data"][0]:
             interaction = r["data"][0]
             drug_a = interaction["interactionCategoryA"]
@@ -158,7 +158,7 @@ class Tripsit(callbacks.Plugin):
         if nick in self.db:
             self.db[nick]['timezone'] = timezone
         else:
-            self.db[nick] = {'timezone': timezone}
+            self.db[nick] = {'timezone': timezone }
         irc.replySuccess()
     set = wrap(set, ["something"])
 
@@ -212,7 +212,7 @@ class Tripsit(callbacks.Plugin):
                 dose_td = datetime.timedelta(hours=int(ago[0:2]), minutes=int(ago[2:4]))
                 dose_td_s = dose_td.total_seconds()
                 time = time - dose_td
-            doseLog = {'time': time, 'dose': dose, 'drug': name, 'method': method}
+            doseLog = {'time': time, 'dose': dose, 'drug': name, 'method': method }
             doses = self.db[nick].get('doses')
             if doses:
                 doses.append(doseLog)
@@ -226,6 +226,7 @@ class Tripsit(callbacks.Plugin):
             dose_td = 0
             if ago is not None and len(ago) == 4:
                 dose_td = datetime.timedelta(hours=int(ago[0:2]), minutes=int(ago[2:4]))
+                dose_td_s = dose_td.total_seconds()
                 time = time - dose_td
             doseLog = {'time': time, 'dose': dose, 'drug': name, 'method': method }
             doses = [doseLog]
@@ -243,13 +244,15 @@ class Tripsit(callbacks.Plugin):
 
     @wrap([optional('positiveInt')])
     def lastdose(self, irc, msg, args, history):
-        """This command takes no arguments
-        retrieves your last logged dose
+        """<n>
+
+        retrieves your <n>th last logged dose
         """
         nick = msg.nick
         if nick in self.db:
             if history:
-                lastdose = self.db[nick]['doses'][int(history)]
+                hist = -int(history)
+                lastdose = self.db[nick]['doses'][-int(history)]
             else:
                 lastdose = self.db[nick]['doses'][-1]
             dose = lastdose['dose']
@@ -278,3 +281,4 @@ Class = Tripsit
 
 
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:
+
