@@ -270,15 +270,8 @@ class Tripsit(callbacks.Plugin):
             irc.reply(re)
         else:
             irc.error(f'No doses saved for {nick}')
-
-
-
-
-
-
-
+            
 Class = Tripsit
 
 
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:
-
