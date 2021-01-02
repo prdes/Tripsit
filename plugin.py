@@ -53,7 +53,7 @@ filename = conf.supybot.directories.data.dirize("Tripsit.db")
 url_drug = "http://tripbot.tripsit.me/api/tripsit/getDrug"
 url_combo = "http://tripbot.tripsit.me/api/tripsit/getInteraction"
 
-insufflated = ["Insufflated", "Insufflated-IR", "Insufflated-XR"]
+insufflated = ["Insufflation", "Insufflation-IR", "Insufflation-XR"]
 
 METHODS = {
     "iv": ["IV"],
@@ -106,6 +106,7 @@ class Tripsit(callbacks.Plugin):
     @wrap(['something', optional('something')])
     def drug(self, irc, msg, args, name, category):
         """<drug> [<category>]
+        
         fetches data on drug from tripsit wiki
         """
         category_list = []
@@ -115,7 +116,7 @@ class Tripsit(callbacks.Plugin):
             properties = r["data"][0]["properties"]
             for key in properties:
                 category_list.append(key)
-            if category == None:
+            if category is None:
                 re = drug + " Available categories are: " + ", ".join(category_list)
                 irc.reply(re)
             else:
@@ -129,6 +130,7 @@ class Tripsit(callbacks.Plugin):
 
     def combo(self, irc, msg, args, drugA, drugB):
         """<drugA> <drugB>
+        
         fetches known interactions between the substances provided.
         """
         r = requests.get(url_combo, params={f"drugA": drugA, f"drugB": drugB}).json()
@@ -151,24 +153,29 @@ class Tripsit(callbacks.Plugin):
 
     def set(self, irc, msg, args, timezone):
         """<timezone>
-        Sets location for your current ident@host to <timezone>
+
+        Sets location for your current nick to <timezone>
         for eg. America/Chicago
         """
         nick = msg.nick
-        if nick in self.db:
-            self.db[nick]['timezone'] = timezone
-        else:
-            self.db[nick] = {'timezone': timezone }
-        irc.replySuccess()
+        try:
+            timezone = pytz.timezone(timezone)
+            if nick in self.db:
+                self.db[nick]['timezone'] = timezone
+            else:
+                self.db[nick] = {'timezone': timezone }
+            irc.replySuccess()
+        except pytz.UnknownTimeZoneError:
+            irc.error(_('Unknown timezone'), Raise=True)
     set = wrap(set, ["something"])
 
-    @wrap(["something", "something", optional("something"), optional("something")])
-    def idose(self, irc, msg, args, dose, name, method, ago):
-        """<amount> <drug> [<method>] [<ago>]
+    @wrap(["private", "something", "something", optional("something"), getopts({'ago': 'something'})])
+    def idose(self, irc, msg, args, dose, name, method, opts):
+        """<amount> <drug> [<method>] [--ago <HHMM>]
 
-        <ago> is in the format HHMM
-        logs a dose for you, use 'lastdose' command to retrieve
+        logs a dose for you, can only be used in private.
         """
+        opts = dict(opts)
         r = requests.get(url_drug, params={"name": name}).json()
         found_method = False
         onset = None
@@ -205,10 +212,11 @@ class Tripsit(callbacks.Plugin):
         nick = msg.nick
         if nick in self.db:
             timezone = self.db[nick].get('timezone', 'UTC')
-            tz = pytz.timezone(timezone)
+            tz = pytz.timezone(str(timezone))
             time = datetime.datetime.now(tz=tz)
             dose_td = 0
-            if ago is not None and len(ago) == 4:
+            if 'ago' in opts and len(opts['ago']) == 4:
+                ago = opts['ago']
                 dose_td = datetime.timedelta(hours=int(ago[0:2]), minutes=int(ago[2:4]))
                 dose_td_s = dose_td.total_seconds()
                 time = time - dose_td
@@ -221,10 +229,10 @@ class Tripsit(callbacks.Plugin):
             self.db[nick]['doses'] = doses
         else:
             timezone = 'UTC'
-            tz = pytz.timezone(timezone)
-            time = datetime.datetime.now(tz=tz)
+            time = datetime.datetime.utcnow()
             dose_td = 0
-            if ago is not None and len(ago) == 4:
+            if 'ago' in opts and len(opts['ago']) == 4:
+                ago = opts['ago']
                 dose_td = datetime.timedelta(hours=int(ago[0:2]), minutes=int(ago[2:4]))
                 dose_td_s = dose_td.total_seconds()
                 time = time - dose_td
@@ -233,11 +241,11 @@ class Tripsit(callbacks.Plugin):
             self.db[nick] = {'timezone': timezone, 'doses': doses}
 
         if dose_td == 0:
-            re = utils.str.format("You dosed %s of %s at %t, %s", dose, drug_and_method, time.timetuple(), timezone)
+            re = utils.str.format("You dosed %s of %s at %s, %s", dose, drug_and_method, str(time), timezone)
             if onset is not None:
                 re += utils.str.format(". You should start feeling effects %s from now", onset)
         else:
-            re = utils.str.format("You dosed %s of %s at %t, %s ; %T ago", dose, drug_and_method, time.timetuple(), timezone, dose_td.total_seconds())
+            re = utils.str.format("You dosed %s of %s at %s, %s ; %T ago", dose, drug_and_method, str(time), timezone, dose_td.total_seconds())
             if onset is not None:
                 re += utils.str.format(". You should have/will start feeling effects %s from/after dosing", onset)
         irc.reply(re)
@@ -251,22 +259,30 @@ class Tripsit(callbacks.Plugin):
         nick = msg.nick
         if nick in self.db:
             if history:
-                hist = -int(history)
-                lastdose = self.db[nick]['doses'][-int(history)]
+                try:
+                    lastdose = self.db[nick]['doses'][-int(history)]
+                except IndexError:
+                    irc.error("You haven't logged that many doses")
             else:
                 lastdose = self.db[nick]['doses'][-1]
             dose = lastdose['dose']
             drug = lastdose['drug']
+            method = lastdose['method']
             dose_time = lastdose['time']
             timezone = self.db[nick]['timezone']
-            tz = pytz.timezone(timezone)
+            tz = pytz.timezone(str(timezone))
             time = datetime.datetime.now(tz=tz)
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
             if history:
-                re = utils.str.format("Your %i'th last dose was %s of %s at %t %s, %T ago", history, dose, drug, dose_time.timetuple(), timezone, since_dose_seconds)
+                if history == '2':
+                    re = utils.str.format("Your %i'nd last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
+                if history == '3':
+                    re = utils.str.format("Your %i'rd last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
+                else:
+                    re = utils.str.format("Your %i'th last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
             else:
-                re = utils.str.format("You last dosed %s of %s at %t %s, %T ago", dose, drug, dose_time.timetuple(), timezone, since_dose_seconds)
+                re = utils.str.format("You last dosed %s of %s via %s at %s %s, %T ago", dose, drug, method, str(dose_time), timezone, since_dose_seconds)
             irc.reply(re)
         else:
             irc.error(f'No doses saved for {nick}')
