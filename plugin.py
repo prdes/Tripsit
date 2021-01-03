@@ -229,7 +229,8 @@ class Tripsit(callbacks.Plugin):
             self.db[nick]['doses'] = doses
         else:
             timezone = 'UTC'
-            time = datetime.datetime.utcnow()
+            tz = pytz.timezone(timezone)
+            time = datetime.datetime.now(tz=tz)
             dose_td = 0
             if 'ago' in opts and len(opts['ago']) == 4:
                 ago = opts['ago']
