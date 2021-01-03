@@ -169,9 +169,9 @@ class Tripsit(callbacks.Plugin):
             irc.error(_('Unknown timezone'), Raise=True)
     set = wrap(set, ["something"])
 
-    @wrap(["private", "something", "something", optional("something"), getopts({'ago': 'something'})])
-    def idose(self, irc, msg, args, dose, name, method, opts):
-        """<amount> <drug> [<method>] [--ago <HHMM>]
+    @wrap(["private", getopts({'ago': 'something'}), "something", "something", optional("something")])
+    def idose(self, irc, msg, args, opts, dose, name, method):
+        """[--ago <HHMM>] <amount> <drug> [<method/ROA>]
 
         logs a dose for you, can only be used in private.
         """
@@ -264,6 +264,7 @@ class Tripsit(callbacks.Plugin):
                     lastdose = self.db[nick]['doses'][-int(history)]
                 except IndexError:
                     irc.error("You haven't logged that many doses")
+                    return
             else:
                 lastdose = self.db[nick]['doses'][-1]
             dose = lastdose['dose']
@@ -276,9 +277,9 @@ class Tripsit(callbacks.Plugin):
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
             if history:
-                if history == '2':
+                if history == 2:
                     re = utils.str.format("Your %i'nd last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
-                if history == '3':
+                elif history == 3:
                     re = utils.str.format("Your %i'rd last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
                 else:
                     re = utils.str.format("Your %i'th last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
@@ -287,7 +288,7 @@ class Tripsit(callbacks.Plugin):
             irc.reply(re)
         else:
             irc.error(f'No doses saved for {nick}')
-            
+
 Class = Tripsit
 
 
