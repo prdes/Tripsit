@@ -30,6 +30,9 @@
 
 from supybot import utils, plugins, ircutils, callbacks, world, conf, log
 from supybot.commands import *
+
+
+from num2words import num2words
 import dateutil.parser
 import json
 import requests
@@ -277,12 +280,8 @@ class Tripsit(callbacks.Plugin):
             since_dose = time - dose_time
             since_dose_seconds = since_dose.total_seconds()
             if history:
-                if history == 2:
-                    re = utils.str.format("Your %i'nd last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
-                elif history == 3:
-                    re = utils.str.format("Your %i'rd last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
-                else:
-                    re = utils.str.format("Your %i'th last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
+                history = num2words(history, to='ordinal'):
+                    re = utils.str.format("Your %i last dose was %s of %s via %s at %s %s, %T ago", history, dose, drug, method, str(dose_time), timezone, since_dose_seconds)
             else:
                 re = utils.str.format("You last dosed %s of %s via %s at %s %s, %T ago", dose, drug, method, str(dose_time), timezone, since_dose_seconds)
             irc.reply(re)
